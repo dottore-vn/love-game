@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#16111d" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Our Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      overscroll-behavior: none;
+      touch-action: none;
+      background: #16111d;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    .hint {
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 0px) + 14px);
+      left: 14px;
+      max-width: calc(100vw - 90px);
+      background: rgba(30, 22, 42, 0.75);
+      border: 1px solid rgba(255, 223, 145, 0.45);
+      color: #ffeec4;
+      padding: 9px 16px;
+      border-radius: 999px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      pointer-events: none;
+      z-index: 5;
+      transition: opacity 0.6s ease;
+    }
+    .hint.hidden { opacity: 0; }
+
+    .audio-btn {
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 0px) + 10px);
+      right: 14px;
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      border: 2px solid rgba(255, 223, 145, 0.55);
+      background: rgba(30, 22, 42, 0.7);
+      color: #fde68a;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 6;
+      touch-action: manipulation;
+    }
+
+    .controls {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: none;
+      justify-content: space-between;
+      padding: 0 max(20px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 18px) max(20px, env(safe-area-inset-left, 0px));
+      pointer-events: none;
+      z-index: 6;
+      transition: opacity 0.4s ease;
+    }
+    .controls.hidden { opacity: 0; pointer-events: none; }
+    .controls.hidden .ctrl-btn { pointer-events: none; }
+
+    @media (hover: none) and (pointer: coarse) {
+      .controls { display: flex; }
+    }
+
+    .ctrl-btn {
+      pointer-events: auto;
+      width: 78px;
+      height: 78px;
+      border-radius: 26px;
+      border: 2px solid rgba(255, 223, 145, 0.6);
+      background: rgba(30, 22, 42, 0.62);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #fde68a;
+      font-size: 2rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+      transition: transform 0.08s ease, background 0.08s ease;
+    }
+    .ctrl-btn.active {
+      transform: scale(0.92);
+      background: rgba(251, 191, 36, 0.4);
+      border-color: #fde047;
+    }
+
+    .card-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: calc(max(16px, env(safe-area-inset-top, 0px)) + 52px) 16px 24px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+      background: rgba(14, 10, 22, 0.36);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.9s ease;
+      z-index: 10;
+    }
+    .card-overlay.visible { opacity: 1; }
+    .card-overlay.visible .card { pointer-events: auto; }
+
+    .card {
+      position: relative;
+      max-width: 400px;
+      width: 100%;
+      padding: 26px 22px 22px;
+      text-align: center;
+      background: linear-gradient(160deg, rgba(48, 30, 56, 0.94), rgba(28, 20, 40, 0.96));
+      border: 1px solid rgba(252, 211, 77, 0.55);
+      border-radius: 22px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(251, 191, 36, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transform: translateY(24px) scale(0.96);
+      transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 7px;
+      border: 1px solid rgba(252, 211, 77, 0.22);
+      border-radius: 16px;
+      pointer-events: none;
+    }
+    .card-overlay.visible .card { transform: translateY(0) scale(1); }
+
+    .card-icon { font-size: 32px; margin-bottom: 6px; display: block; }
+
+    .card h1 {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-style: italic;
+      font-weight: 600;
+      color: #fcd34d;
+      font-size: clamp(1.25rem, 5.5vw, 1.65rem);
+      line-height: 1.25;
+      margin-bottom: 10px;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: rgba(252, 211, 77, 0.8);
+      font-size: 0.75rem;
+      margin-bottom: 12px;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      width: 48px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(252, 211, 77, 0.6), transparent);
+    }
+
+    .card p {
+      font-family: Georgia, 'Times New Roman', serif;
+      color: #fff4dc;
+      font-size: clamp(0.92rem, 3.8vw, 1.02rem);
+      line-height: 1.6;
+      margin-bottom: 12px;
+      white-space: pre-line;
+    }
+
+    .signature {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-style: italic;
+      color: #fbbf77;
+      font-size: 0.98rem;
+      margin-bottom: 16px;
+    }
+
+    .replay-btn {
+      background: transparent;
+      color: #fde68a;
+      border: 1px solid rgba(252, 211, 77, 0.6);
+      border-radius: 999px;
+      padding: 10px 24px;
+      min-height: 44px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 0.15s ease, background 0.2s ease;
+    }
+    .replay-btn:hover { background: rgba(251, 191, 36, 0.15); }
+    .replay-btn:active { transform: scale(0.96); }
+
+    @media (max-height: 520px) {
+      .card-overlay { align-items: flex-start; padding: 54px 12px 16px; }
+      .card { padding: 14px 16px 14px; max-width: 460px; }
+      .card-icon { font-size: 22px; margin-bottom: 2px; }
+      .card h1 { margin-bottom: 6px; font-size: 1.2rem; }
+      .divider { margin-bottom: 8px; }
+      .card p { margin-bottom: 8px; line-height: 1.42; font-size: 0.88rem; }
+      .signature { margin-bottom: 10px; font-size: 0.9rem; }
+      .replay-btn { padding: 8px 18px; min-height: 38px; font-size: 0.86rem; }
+      .ctrl-btn { width: 64px; height: 64px; font-size: 1.7rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="game"></canvas>
+
+  <div class="hint" id="hint">🌻 Caminhe até ela perto da cerca...</div>
+  <button class="audio-btn" id="audioBtn" aria-label="Alternar som">🔇</button>
+
+  <div class="controls" id="controls">
+    <div class="ctrl-btn" id="btnLeft" aria-label="Andar para a esquerda">◀</div>
+    <div class="ctrl-btn" id="btnRight" aria-label="Andar para a direita">▶</div>
+  </div>
+
+  <div class="card-overlay" id="cardOverlay">
+    <div class="card">
+      <span class="card-icon">🌻💛</span>
+      <h1 id="cardTitle"></h1>
+      <div class="divider">✦</div>
+      <p id="cardBody"></p>
+      <div class="signature" id="cardSignature"></div>
+      <button class="replay-btn" id="replayBtn">↺ Jogar novamente</button>
+    </div>
+  </div>
+
+  <script>
+    const MENSAGEM = {
+      titulo: "Para o meu raio de sol",
+      texto: "O por do sol se tornou o momento mais lindo do dia pra mim, mas nem sempre eu enxerguei assim, foi você que deu um significado especial para ele.\n\nE mesmo em dias muito dificeis, esse brilho laranja sempre fez eu lembrar de você, que está sempre brilhando não importa a hora do dia ou a fase em que se encontra.\n\nFoi por isso que eu me apaixonei pelo por do sol, e é por isso que você é um raio de sol.\n\nNunca se esqueça do quão incrível você é, eu te admiro. 💛",
+      assinatura: "~ gaah 🧡"
+    };
+
+    const PASTA = 'assets/';
+
+    const ASSETS = {
+      bg:             PASTA + 'background.jpg',
+      boyWalk1:       PASTA + 'gaah_walk1.png',
+      boyWalk2:       PASTA + 'gaah_walk2.png',
+      boyIdleBouquet: PASTA + 'gaah_flower_afk.png',
+      boyIdleEmpty:   PASTA + 'gaah_afk.png',
+      girlBack:       PASTA + 'ana_back.png',
+      girlSide:       PASTA + 'ana_side.png',
+      girlBouquet:    PASTA + 'ana_flower.png',
+      hug:            PASTA + 'gaah_ana_hug.png'
+    };
+
+    const ESCALA_PERSONAGEM = 0.28;
+    const CHAO_Y = 0.78;
+    const GIRL_X = 0.86;
+    const DISTANCIA_VIRAR = 0.28;
+    const DISTANCIA_ENTREGAR = 0.07;
+    const DIALOGO = [
+      "Esses últimos dias tem sido difíceis, não é...",
+      "Aqui, trouxe flores pra você, são as suas favoritas.\n\nNão é a solução para todos os seus problemas, mas espero que alegre um pouquinho o seu dia.",
+      "Não se esqueça de que apesar de todo esse transtorno, eu ainda amo muito você tá?",
+      "Eu deixei um bilhete ai junto das flores pra você, dá uma lida nele."
+    ];
+    const DIALOGO_HUG = "Eu te amo";
+    const DIALOGO_INICIO = 1.0;
+    const DIALOGO_VELOCIDADE = 28;
+    const DIALOGO_LEITURA_BASE = 1.4;
+    const DIALOGO_LEITURA_LETRA = 0.015;
+    const DIALOGO_ENTRE_FALAS = 0.35;
+    const HUG_ESPERA_APOS_FALA = 2.0;
+    const ANA_OLHA_PARA_ESQUERDA = true;
+
+    document.getElementById('cardTitle').textContent = MENSAGEM.titulo;
+    document.getElementById('cardBody').textContent = MENSAGEM.texto;
+    document.getElementById('cardSignature').textContent = MENSAGEM.assinatura;
+
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const cardOverlay = document.getElementById('cardOverlay');
+    const replayBtn = document.getElementById('replayBtn');
+    const hint = document.getElementById('hint');
+    const controls = document.getElementById('controls');
+    const btnLeft = document.getElementById('btnLeft');
+    const btnRight = document.getElementById('btnRight');
+    const audioBtn = document.getElementById('audioBtn');
+
+    let W = window.innerWidth;
+    let H = window.innerHeight;
+    let DPR = 1;
+
+    function resize() {
+      const vv = window.visualViewport;
+      W = Math.round(vv ? vv.width : window.innerWidth);
+      H = Math.round(vv ? vv.height : window.innerHeight);
+      DPR = Math.min(window.devicePixelRatio || 1, 3);
+      canvas.width = Math.round(W * DPR);
+      canvas.height = Math.round(H * DPR);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    }
+    window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', () => setTimeout(resize, 150));
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+    resize();
+
+    const loadErrors = [];
+
+    function loadRaw(src) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => { loadErrors.push(src); resolve(null); };
+        img.src = src;
+      });
+    }
+
+    function makeSprite(img, limparVaos = false) {
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      const full = { img, sx: 0, sy: 0, sw: w, sh: h };
+
+      try {
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const cx = c.getContext('2d', { willReadFrequently: true });
+        cx.drawImage(img, 0, 0);
+        const id = cx.getImageData(0, 0, w, h);
+        const d = id.data;
+
+        const dark = (i) => {
+          const p = i * 4;
+          return d[p + 3] === 0 || (d[p] < 28 && d[p + 1] < 28 && d[p + 2] < 28);
+        };
+
+        const c0 = 0;
+        const cornerOpaqueDark = d[c0 + 3] > 200 && d[0] < 28 && d[1] < 28 && d[2] < 28;
+
+        if (cornerOpaqueDark) {
+          const visited = new Uint8Array(w * h);
+          const queue = new Int32Array(w * h);
+          let head = 0, tail = 0;
+          const push = (x, y) => {
+            if (x < 0 || x >= w || y < 0 || y >= h) return;
+            const i = y * w + x;
+            if (visited[i]) return;
+            visited[i] = 1;
+            if (dark(i)) queue[tail++] = i;
+          };
+          for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+          for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+          while (head < tail) {
+            const i = queue[head++];
+            d[i * 4 + 3] = 0;
+            const x = i % w, y = (i - x) / w;
+            push(x - 1, y); push(x + 1, y); push(x, y - 1); push(x, y + 1);
+          }
+          const kill = [];
+          for (let y = 1; y < h - 1; y++) {
+            for (let x = 1; x < w - 1; x++) {
+              const i = y * w + x, p = i * 4;
+              if (d[p + 3] === 0) continue;
+              if (d[p] < 35 && d[p + 1] < 35 && d[p + 2] < 35 &&
+                  (d[(i - 1) * 4 + 3] === 0 || d[(i + 1) * 4 + 3] === 0 ||
+                   d[(i - w) * 4 + 3] === 0 || d[(i + w) * 4 + 3] === 0)) kill.push(p + 3);
+            }
+          }
+          kill.forEach((p) => { d[p] = 0; });
+
+          if (limparVaos) {
+            const minArea = Math.round(w * h * 0.001);
+            const seen = new Uint8Array(w * h);
+            const q = new Int32Array(w * h);
+            const pureBlack = (i) => d[i * 4 + 3] > 0 && d[i * 4] <= 3 && d[i * 4 + 1] <= 3 && d[i * 4 + 2] <= 3;
+            for (let start = 0; start < w * h; start++) {
+              if (seen[start] || !pureBlack(start)) continue;
+              let qh = 0, qt = 0;
+              q[qt++] = start; seen[start] = 1;
+              while (qh < qt) {
+                const i = q[qh++];
+                const x = i % w, y = (i - x) / w;
+                if (x > 0 && !seen[i - 1] && pureBlack(i - 1)) { seen[i - 1] = 1; q[qt++] = i - 1; }
+                if (x < w - 1 && !seen[i + 1] && pureBlack(i + 1)) { seen[i + 1] = 1; q[qt++] = i + 1; }
+                if (y > 0 && !seen[i - w] && pureBlack(i - w)) { seen[i - w] = 1; q[qt++] = i - w; }
+                if (y < h - 1 && !seen[i + w] && pureBlack(i + w)) { seen[i + w] = 1; q[qt++] = i + w; }
+              }
+              if (qt >= minArea) {
+                for (let k = 0; k < qt; k++) d[q[k] * 4 + 3] = 0;
+              }
+            }
+          }
+          cx.putImageData(id, 0, 0);
+        }
+
+        let minX = w, minY = h, maxX = -1, maxY = -1;
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            if (d[(y * w + x) * 4 + 3] > 20) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+        if (maxX < 0) return full;
+        return { img: c, sx: minX, sy: minY, sw: maxX - minX + 1, sh: maxY - minY + 1 };
+      } catch (err) {
+        console.warn('Não foi possível processar o sprite (use um servidor local):', err);
+        return full;
+      }
+    }
+
+    const bgImg = { img: null };
+    const sprites = {};
+
+    async function loadAll() {
+      const bg = await loadRaw(ASSETS.bg);
+      bgImg.img = bg;
+
+      const keys = Object.keys(ASSETS).filter((k) => k !== 'bg');
+      await Promise.all(keys.map(async (k) => {
+        const img = await loadRaw(ASSETS[k]);
+        if (img) sprites[k] = makeSprite(img, k === 'hug');
+      }));
+      loaded = true;
+    }
+    let loaded = false;
+
+    const sound = {
+      ctx: null, enabled: false, stepCd: 0,
+      init() {
+        if (!this.ctx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) this.ctx = new AC();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+      },
+      tone(freq, dur, vol = 0.06, delay = 0, type = 'sine') {
+        if (!this.enabled || !this.ctx) return;
+        const t = this.ctx.currentTime + delay;
+        const o = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(freq, t);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g); g.connect(this.ctx.destination);
+        o.start(t); o.stop(t + dur + 0.03);
+      },
+      step() { this.tone(155 + Math.random() * 25, 0.07, 0.03, 0, 'triangle'); },
+      notice() { this.tone(523.25, 0.16, 0.07); this.tone(659.25, 0.24, 0.07, 0.1); },
+      deliver() {
+        [523.25, 659.25, 783.99, 1046.5, 987.77, 1046.5].forEach((n, i) => this.tone(n, 0.35, 0.08, i * 0.13));
+      }
+    };
+
+    audioBtn.addEventListener('click', () => {
+      sound.init();
+      sound.enabled = !sound.enabled;
+      audioBtn.textContent = sound.enabled ? '🔊' : '🔇';
+    });
+    audioBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+
+    const START_X = 0.15;
+
+    const state = {
+      boyX: START_X,
+      boyDir: 1,
+      girlX: GIRL_X,
+      girlPose: 'back',
+      walking: false,
+      delivered: false,
+      walkTimer: 0,
+      idleTimer: 0,
+      targetX: null,
+      particles: [],
+      dlgIndex: 0,
+      dlgTimer: 0,
+      dlgTyped: 0,
+      dlgWait: 0,
+      dlgVisible: false,
+      dlgDone: false,
+      hugActive: false,
+      hugTimer: 0,
+      hugTyped: 0,
+      hugAfterShownTimer: 0,
+      cardShown: false
+    };
+
+    const dust = [];
+    for (let i = 0; i < 28; i++) {
+      dust.push({
+        x: Math.random(), y: Math.random() * 0.75,
+        size: 1.5 + Math.random() * 2.5,
+        vx: -0.004 - Math.random() * 0.008,
+        vy: (Math.random() - 0.5) * 0.006,
+        alpha: 0.25 + Math.random() * 0.5,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+
+    const keys = { left: false, right: false };
+    const touchBtn = { left: false, right: false };
+
+    function hideHint() { hint.classList.add('hidden'); }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        sound.init(); keys.right = true; state.targetX = null; hideHint();
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        sound.init(); keys.left = true; state.targetX = null; hideHint();
+      }
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+    });
+
+    function releaseAllInputs() {
+      keys.left = keys.right = false;
+      touchBtn.left = touchBtn.right = false;
+      btnLeft.classList.remove('active');
+      btnRight.classList.remove('active');
+      canvasPointerId = null;
+    }
+    window.addEventListener('blur', releaseAllInputs);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAllInputs(); });
+
+    let canvasPointerId = null;
+
+    canvas.addEventListener('pointerdown', (e) => {
+      if (state.delivered) return;
+      e.preventDefault();
+      sound.init();
+      canvasPointerId = e.pointerId;
+      try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+      state.targetX = e.clientX / W;
+      hideHint();
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (state.delivered || e.pointerId !== canvasPointerId) return;
+      e.preventDefault();
+      state.targetX = e.clientX / W;
+    });
+    function endCanvasPointer(e) { if (e.pointerId === canvasPointerId) canvasPointerId = null; }
+    canvas.addEventListener('pointerup', endCanvasPointer);
+    canvas.addEventListener('pointercancel', endCanvasPointer);
+
+    function bindHoldButton(el, side) {
+      const press = (e) => {
+        e.preventDefault();
+        sound.init();
+        try { el.setPointerCapture(e.pointerId); } catch (_) {}
+        touchBtn[side] = true;
+        state.targetX = null;
+        el.classList.add('active');
+        hideHint();
+      };
+      const release = () => { touchBtn[side] = false; el.classList.remove('active'); };
+      el.addEventListener('pointerdown', press);
+      el.addEventListener('pointerup', release);
+      el.addEventListener('pointercancel', release);
+      el.addEventListener('lostpointercapture', release);
+      el.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+    bindHoldButton(btnLeft, 'left');
+    bindHoldButton(btnRight, 'right');
+
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach((ev) =>
+      document.addEventListener(ev, (e) => e.preventDefault())
+    );
+    document.addEventListener('touchmove', (e) => {
+      if (!cardOverlay.contains(e.target)) e.preventDefault();
+    }, { passive: false });
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    replayBtn.addEventListener('click', () => {
+      state.boyX = START_X;
+      state.boyDir = 1;
+      state.girlPose = 'back';
+      state.delivered = false;
+      state.walking = false;
+      state.targetX = null;
+      state.particles = [];
+      state.dlgIndex = 0;
+      state.dlgTimer = 0;
+      state.dlgTyped = 0;
+      state.dlgWait = 0;
+      state.dlgVisible = false;
+      state.dlgDone = false;
+      state.hugActive = false;
+      state.hugTimer = 0;
+      state.hugTyped = 0;
+      state.hugAfterShownTimer = 0;
+      state.cardShown = false;
+      releaseAllInputs();
+      cardOverlay.classList.remove('visible');
+      controls.classList.remove('hidden');
+    });
+
+    function spawnCelebration(x, y) {
+      const colors = ['#fde047', '#fbbf24', '#fb923c', '#ff9ebb', '#ffffff'];
+      for (let i = 0; i < 45; i++) {
+        const angle = (Math.PI * 2 * i) / 45 + (Math.random() - 0.5) * 0.3;
+        const speed = 1.5 + Math.random() * 4.5;
+        state.particles.push({
+          x, y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 2.5,
+          size: 5 + Math.random() * 6,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          life: 1,
+          isHeart: Math.random() > 0.45
+        });
+      }
+    }
+
+    function drawHeart(x, y, size, color, alpha = 1) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      ctx.translate(x, y);
+      ctx.beginPath();
+      ctx.moveTo(0, size * 0.3);
+      ctx.bezierCurveTo(-size * 0.5, -size * 0.3, -size, size * 0.1, 0, size * 0.85);
+      ctx.bezierCurveTo(size, size * 0.1, size * 0.5, -size * 0.3, 0, size * 0.3);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function wrapText(text, maxW) {
+      const out = [];
+      for (const para of text.split('\n')) {
+        if (para === '') { out.push(''); continue; }
+        let line = '';
+        for (const word of para.split(' ')) {
+          const test = line ? line + ' ' + word : word;
+          if (line && ctx.measureText(test).width > maxW) { out.push(line); line = word; }
+          else line = test;
+        }
+        out.push(line);
+      }
+      return out;
+    }
+
+    function drawSpeechBubble(x, bottomY, fullText, typedChars) {
+      ctx.save();
+      const compact = W < 520 || H < 460;
+      const fontSize = compact ? Math.max(12, Math.min(14, W / 26)) : Math.max(13, Math.min(16, W / 24));
+      const lineH = fontSize * (compact ? 1.38 : 1.48);
+      const padX = compact ? 12 : 16;
+      const padY = compact ? 9 : 12;
+      const margin = 10;
+      const topSafe = 62;
+      ctx.font = `600 ${fontSize}px "Segoe UI", system-ui, sans-serif`;
+
+      const maxTextW = compact ? Math.min(220, W - margin * 2 - padX * 2) : Math.min(280, W - margin * 2 - padX * 2);
+      const lines = wrapText(fullText, maxTextW);
+      const textW = Math.max(...lines.map((l) => ctx.measureText(l).width));
+      const boxW = textW + padX * 2;
+      const boxH = lines.length * lineH + padY * 2;
+
+      let boxX = x - boxW / 2;
+      boxX = Math.max(margin, Math.min(W - boxW - margin, boxX));
+      const boxY = Math.max(topSafe, bottomY - 8 - boxH);
+      const tailX = Math.max(boxX + 16, Math.min(boxX + boxW - 16, x));
+      const boxBottom = boxY + boxH;
+
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 4;
+      ctx.fillStyle = '#fff7e6';
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2.5;
+
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(boxX, boxY, boxW, boxH, 14); else ctx.rect(boxX, boxY, boxW, boxH);
+      ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.stroke();
+
+      ctx.fillStyle = '#fff7e6';
+      ctx.beginPath();
+      ctx.moveTo(tailX - 8, boxBottom - 1);
+      ctx.lineTo(tailX + 8, boxBottom - 1);
+      ctx.lineTo(tailX, boxBottom + 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(tailX - 8, boxBottom);
+      ctx.lineTo(tailX, boxBottom + 10);
+      ctx.lineTo(tailX + 8, boxBottom);
+      ctx.stroke();
+
+      ctx.fillStyle = '#4a3340';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      let remaining = typedChars;
+      for (let i = 0; i < lines.length && remaining > 0; i++) {
+        const part = lines[i].slice(0, remaining);
+        ctx.fillText(part, boxX + padX, boxY + padY + lineH * i + lineH / 2);
+        remaining -= lines[i].length + 1;
+      }
+
+      ctx.restore();
+    }
+
+    function isPortraitScreen() {
+      return H > W * 1.12;
+    }
+
+    function getSceneMetrics() {
+      const img = bgImg.img;
+      if (!img) return { drawX: 0, drawY: 0, drawW: W, drawH: H, groundY: H * CHAO_Y };
+      const portrait = isPortraitScreen();
+      const scale = portrait ? Math.min(W / img.width, (H * 0.56) / img.height) : Math.max(W / img.width, H / img.height);
+      const drawW = img.width * scale;
+      const drawH = img.height * scale;
+      const drawX = (W - drawW) * 0.5;
+      const drawY = portrait ? (H - drawH) * 0.48 : (H - drawH) * 0.5;
+      return { drawX, drawY, drawW, drawH, groundY: drawY + drawH * CHAO_Y };
+    }
+
+    function getCharHeight(drawH) {
+      const base = Math.min(280, drawH * ESCALA_PERSONAGEM);
+      if (isPortraitScreen()) {
+        return Math.max(68, Math.min(W * 0.23, 128, base * 0.58));
+      }
+      return Math.max(110, Math.min(W * 0.5, base));
+    }
+
+    function getContactDist() {
+      const { drawH } = getSceneMetrics();
+      const charHeight = getCharHeight(drawH);
+      const b = sprites.boyIdleBouquet || sprites.boyIdleEmpty;
+      const g = sprites.girlSide || sprites.girlBack;
+      if (!b || !g) return DISTANCIA_ENTREGAR;
+      const boyW = b.sw * (charHeight * 1.02) / b.sh;
+      const girlW = g.sw * (charHeight * 0.96) / g.sh;
+      const contactPx = (boyW + girlW) * 0.5 * 0.82;
+      return Math.max(0.03, contactPx / W);
+    }
+
+    let lastTime = performance.now();
+
+    function update(dt) {
+      state.idleTimer += dt;
+
+      for (const p of dust) {
+        p.x += p.vx * dt * 6;
+        p.y += p.vy * dt * 6 + Math.sin(state.idleTimer + p.phase) * 0.0004;
+        if (p.x < -0.02) { p.x = 1.02; p.y = Math.random() * 0.75; }
+        if (p.y < 0) p.y = 0.75;
+        if (p.y > 0.78) p.y = 0;
+      }
+
+      if (!state.delivered) {
+        const contato = getContactDist();
+        let move = 0;
+        if (keys.right || touchBtn.right) move += 1;
+        if (keys.left || touchBtn.left) move -= 1;
+
+        if (move === 0 && state.targetX !== null) {
+          const diff = state.targetX - state.boyX;
+          if (Math.abs(diff) > 0.008) {
+            move = diff > 0 ? 1 : -1;
+          } else if (canvasPointerId === null) {
+            state.targetX = null;
+          }
+        }
+
+        if (move !== 0) {
+          state.walking = true;
+          state.boyDir = move;
+          state.boyX += move * 0.17 * dt;
+          state.boyX = Math.max(0.08, Math.min(state.girlX - contato, state.boyX));
+          state.walkTimer += dt * 7.5;
+
+          sound.stepCd -= dt;
+          if (sound.stepCd <= 0) { sound.step(); sound.stepCd = 0.26; }
+        } else {
+          state.walking = false;
+          state.walkTimer = 0;
+        }
+
+        const dist = state.girlX - state.boyX;
+        const prevPose = state.girlPose;
+
+        if (dist <= contato + 0.001) {
+          state.delivered = true;
+          state.girlPose = 'bouquet';
+          state.walking = false;
+          state.boyDir = 1;
+
+          releaseAllInputs();
+          state.targetX = null;
+          controls.classList.add('hidden');
+          hideHint();
+          if (navigator.vibrate) navigator.vibrate([60, 40, 120]);
+          sound.deliver();
+
+          const { groundY } = getSceneMetrics();
+          spawnCelebration(W * ((state.boyX + state.girlX) / 2), groundY - 110);
+
+          state.dlgIndex = 0;
+          state.dlgTimer = 0;
+          state.dlgTyped = 0;
+          state.dlgWait = DIALOGO_INICIO;
+          state.dlgVisible = false;
+          state.dlgDone = false;
+          state.hugActive = false;
+          state.hugTimer = 0;
+          state.hugTyped = 0;
+          state.hugAfterShownTimer = 0;
+          state.cardShown = false;
+        } else if (dist <= DISTANCIA_VIRAR) {
+          state.girlPose = 'side';
+          if (prevPose === 'back') sound.notice();
+        } else {
+          state.girlPose = 'back';
+        }
+      }
+
+      if (state.hugActive && !state.cardShown) {
+        state.hugTimer += dt;
+        state.hugTyped = Math.min(DIALOGO_HUG.length, Math.floor(state.hugTimer * DIALOGO_VELOCIDADE));
+
+        if (state.hugTyped >= DIALOGO_HUG.length) {
+          state.hugAfterShownTimer += dt;
+          if (state.hugAfterShownTimer >= HUG_ESPERA_APOS_FALA) {
+            state.cardShown = true;
+            cardOverlay.classList.add('visible');
+          }
+        }
+      }
+
+      if (state.delivered && !state.dlgDone) {
+        if (state.dlgWait > 0) {
+          state.dlgWait -= dt;
+          state.dlgVisible = false;
+        } else {
+          const line = DIALOGO[state.dlgIndex];
+          state.dlgVisible = true;
+          state.dlgTimer += dt;
+          state.dlgTyped = Math.min(line.length, Math.floor(state.dlgTimer * DIALOGO_VELOCIDADE));
+
+          const tempoDigitando = line.length / DIALOGO_VELOCIDADE;
+          const tempoLeitura = DIALOGO_LEITURA_BASE + line.length * DIALOGO_LEITURA_LETRA;
+
+          if (state.dlgTimer >= tempoDigitando + tempoLeitura) {
+            state.dlgIndex++;
+            state.dlgTimer = 0;
+            state.dlgTyped = 0;
+            state.dlgVisible = false;
+            if (state.dlgIndex >= DIALOGO.length) {
+              state.dlgDone = true;
+              state.hugActive = true;
+              state.hugTimer = 0;
+              state.hugTyped = 0;
+              state.hugAfterShownTimer = 0;
+              state.cardShown = false;
+            } else {
+              state.dlgWait = DIALOGO_ENTRE_FALAS;
+            }
+          }
+        }
+      }
+
+      for (let i = state.particles.length - 1; i >= 0; i--) {
+        const p = state.particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.08;
+        p.life -= dt * 0.55;
+        if (p.life <= 0) state.particles.splice(i, 1);
+      }
+    }
+
+    function drawSprite(s, x, groundY, scale, flip) {
+      const dw = s.sw * scale;
+      const dh = s.sh * scale;
+      ctx.save();
+      ctx.translate(x, groundY);
+      if (flip) ctx.scale(-1, 1);
+      ctx.drawImage(s.img, s.sx, s.sy, s.sw, s.sh, -dw / 2, -dh, dw, dh);
+      ctx.restore();
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#16111d';
+      ctx.fillRect(0, 0, W, H);
+
+      const { drawX, drawY, drawW, drawH, groundY } = getSceneMetrics();
+
+      if (bgImg.img) ctx.drawImage(bgImg.img, drawX, drawY, drawW, drawH);
+
+      for (const p of dust) {
+        const a = p.alpha * (0.6 + 0.4 * Math.sin(state.idleTimer * 2 + p.phase));
+        ctx.fillStyle = `rgba(255, 223, 145, ${a})`;
+        ctx.beginPath();
+        ctx.arc(p.x * W, p.y * H, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const charHeight = getCharHeight(drawH);
+
+      const hugOn = state.hugActive && !!sprites.hug;
+
+      const gx = W * state.girlX;
+      const girlBob = Math.sin(state.idleTimer * 3.0) * 1.6;
+
+      if (!hugOn) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+        ctx.beginPath();
+        ctx.ellipse(gx, groundY + 2, charHeight * 0.22, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const girlSprite =
+        state.girlPose === 'bouquet' ? (sprites.girlBouquet || sprites.girlSide || sprites.girlBack) :
+        state.girlPose === 'side'    ? (sprites.girlSide || sprites.girlBack) :
+        sprites.girlBack;
+
+      const girlRef = sprites.girlBack || girlSprite;
+      if (!hugOn && girlSprite && girlRef) {
+        const gScale = (charHeight * 0.96) / girlRef.sh;
+        const flipGirl = state.girlPose !== 'back' && !ANA_OLHA_PARA_ESQUERDA;
+        drawSprite(girlSprite, gx, groundY + 4 + girlBob, gScale, flipGirl);
+      }
+
+      const bx = W * state.boyX;
+
+      if (!hugOn) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.24)';
+        ctx.beginPath();
+        ctx.ellipse(bx, groundY + 2, charHeight * 0.23, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      let boySprite = sprites.boyIdleBouquet || sprites.boyIdleEmpty;
+      let stepBounce = Math.sin(state.idleTimer * 2.8) * 1.2;
+
+      if (state.delivered) {
+        boySprite = sprites.boyIdleEmpty || sprites.boyIdleBouquet;
+      } else if (state.walking) {
+        const idle = sprites.boyIdleBouquet || sprites.boyIdleEmpty;
+        const frames = [sprites.boyWalk1 || idle, idle, sprites.boyWalk2 || idle, idle];
+        const fi = Math.floor(state.walkTimer) % frames.length;
+        boySprite = frames[fi];
+        stepBounce = (fi % 2 === 0) ? 3.5 : 0;
+      }
+
+      let headY = groundY - charHeight;
+      if (!hugOn && boySprite) {
+        const bScale = (charHeight * 1.02) / boySprite.sh;
+        drawSprite(boySprite, bx, groundY + 5 - stepBounce, bScale, state.boyDir < 0);
+        headY = groundY + 5 - stepBounce - boySprite.sh * bScale;
+      }
+
+      if (hugOn) {
+        const hx = (bx + gx) / 2;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.26)';
+        ctx.beginPath();
+        ctx.ellipse(hx, groundY + 2, charHeight * 0.36, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        const hScale = (charHeight * 1.04) / sprites.hug.sh;
+        drawSprite(sprites.hug, hx, groundY + 5, hScale, false);
+
+        const hugHeadY = groundY + 5 - sprites.hug.sh * hScale;
+        drawSpeechBubble(hx, hugHeadY, DIALOGO_HUG, state.hugTyped);
+      }
+
+      if (state.dlgVisible && !state.dlgDone) {
+        drawSpeechBubble(bx, headY, DIALOGO[state.dlgIndex], state.dlgTyped);
+      }
+
+      for (const p of state.particles) {
+        if (p.isHeart) {
+          drawHeart(p.x, p.y, p.size, p.color, Math.max(0, p.life));
+        } else {
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(p.x, p.y, p.size, p.size);
+          ctx.restore();
+        }
+      }
+
+      if (!loaded && loadErrors.length === 0) {
+        ctx.fillStyle = '#fde68a';
+        ctx.font = '16px "Segoe UI", system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Preparando o pôr do sol...', W / 2, H / 2);
+      }
+
+      if (loadErrors.length > 0) {
+        const boxW = Math.min(460, W - 32);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
+        ctx.fillRect(16, 60, boxW, 36 + loadErrors.length * 22);
+        ctx.fillStyle = '#ff8fa3';
+        ctx.font = '14px monospace';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText('Arquivo(s) não encontrado(s):', 26, 84);
+        loadErrors.forEach((err, idx) => {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText('- ' + err, 26, 106 + idx * 20);
+        });
+      }
+    }
+
+    function loop(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+      update(dt);
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    loadAll();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
